@@ -1,7 +1,46 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+"""pav: Tally Proportional Approval Voting CVRs.
 
+Examples:
+
+    ./pav.py Byers_SD_32J_Adams.csv 4
+
+    ./pav.py --help
+
+SPDX-License-Identifier:	MIT
+"""
+
+import os
+import sys
+import logging
+import argparse
 import collections
 import itertools
+
+__author__ = "Neal McBurnett <http://neal.mcburnett.org/>"
+__version__ = "0.2.0"
+__date__ = "2017-06-28"
+__copyright__ = "Copyright (c) 2017 Neal McBurnett"
+
+parser = argparse.ArgumentParser(description='pav: Tally Proportional Approval Voting CVRs.')
+
+parser.add_argument('cvrfile', nargs='?',
+                    help='CVR file: header for candidates, and 0 or 1 for each candidate (or leave them all blank)')
+
+parser.add_argument("num_winners", type=int, nargs='?',
+  help="Number of winners")
+
+parser.add_argument('-v', '--version', action='store_true',
+                    help='Print version number, or print verbose test results')
+
+parser.add_argument("--test",  action="store_true", default=False,
+  help="Run tests")
+
+parser.add_argument("-d", "--debuglevel", type=int, default=logging.WARNING,
+  help="Set logging level to debuglevel, expressed as an integer: "
+  "DEBUG=10, INFO=20, endpoint timing=25, WARNING=30, ERROR=40, CRITICAL=50. "
+  "The default is %(default)s" )
+
 
 def harmonic(matches):
     """Calculate harmonic series sum up to the integer 'matches'
@@ -32,6 +71,10 @@ def bools_to_set(tuple):
     return frozenset(key for key, value in tuple._asdict().items() if value)
 
 
+def res_to_str(res):
+    return ("%.3f" % res[1], sorted(list(res[0])))
+
+
 def tally_pav(binary_cvrs, num_winners):
     """Tally given csv file with Proportional Approval Voting method
     File should have one column per candidate, identified in headers,
@@ -47,14 +90,14 @@ def tally_pav(binary_cvrs, num_winners):
     Proportional Approval Voting results
     <BLANKLINE>
     Top 10 scores:
-    (frozenset({'C', 'A'}), 30.5)
-    (frozenset({'D', 'A'}), 30.0)
-    (frozenset({'D', 'C'}), 25.0)
-    (frozenset({'A', 'B'}), 24.5)
-    (frozenset({'C', 'B'}), 22.0)
-    (frozenset({'D', 'B'}), 13.0)
+    ('30.500', ['A', 'C'])
+    ('30.000', ['A', 'D'])
+    ('25.000', ['C', 'D'])
+    ('24.500', ['A', 'B'])
+    ('22.000', ['B', 'C'])
+    ('13.000', ['B', 'D'])
     <BLANKLINE>
-    Max score: 30.5 for (frozenset({'C', 'A'}), 30.5)
+    Max score for ('30.500', ['A', 'C'])
     """
 
     if isinstance(binary_cvrs, str):
@@ -92,18 +135,22 @@ def tally_pav(binary_cvrs, num_winners):
 
     print("\nProportional Approval Voting results")
     print("\nTop 10 scores:")
-    [print(res) for res in sorted(scores.items(), key=lambda tuple: tuple[1], reverse=True)[:10]]
+    [print(res_to_str(res)) for res in sorted(scores.items(), key=lambda tuple: tuple[1], reverse=True)[:10]]
 
     winner = max(scores.items(), key=lambda tuple: tuple[1])
-    print("\nMax score: {} for {}".format(scores[winner[0]], winner))
+    print("\nMax score for {}".format(res_to_str(winner)))
 
     return winner, cvrs, scores, df
 
-if __name__ == "__main__":
-    import doctest
-    doctest.testmod()
 
-    # Flexible test for timing.  Choose any legal values for candidates (52 or below) and winners
+def _test():
+    import doctest
+    return doctest.testmod()
+
+
+def _timing():
+    "Flexible test for timing.  Choose any legal values for candidates (52 or below) and winners"
+
     candidates = 10
     winners = 5
     BCVR = collections.namedtuple('BCVR', " ".join("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")[0:candidates*2])  #list(range(candidates)
@@ -113,3 +160,31 @@ if __name__ == "__main__":
 
     winner, cvrs, scores, df = tally_pav("Westminster_Adams.csv", 3)
     print(winner)
+
+
+def main(parser):
+    "Run pav with given argparse arguments"
+
+    args = parser.parse_args()
+
+    logging.basicConfig(level=args.debuglevel)
+
+    logging.debug("args: %s", args)
+
+    if args.test:
+        _test()
+        sys.exit(0)
+
+    elif args.version:
+        print("%s version %s" % (parser.prog, __version__))
+        sys.exit(0)
+
+    elif args.cvrfile and args.num_winners:
+        winner, cvrs, scores, df = tally_pav(args.cvrfile, args.num_winners)
+
+    else:
+        parser.print_help(sys.stderr)
+
+
+if __name__ == "__main__":
+    main(parser)

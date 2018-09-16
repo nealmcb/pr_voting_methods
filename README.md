@@ -2,7 +2,7 @@
 
 [Proportional Representation](https://en.wikipedia.org/wiki/Proportional_representation)
 is the goal of a variety of voting methods, as described e.g. in a 2017 presentation
-[Proportional Representation for LWVBC](http://bcn.boulder.co.us/~neal/elections/proportional-representation-lwv/#1)
+[Proportional Representation for the League of Women Voters, Boulder County (LWVBC)](http://bcn.boulder.co.us/~neal/elections/proportional-representation-lwv/#1)
 
 The `pr_voting_methods` project provides code to implement a variety of proportional representation voting methods, and some data on how individual ballots have been cast in some multi-winner contests, and analyzes how different election methods would handle the same votes.
 
@@ -36,9 +36,13 @@ See the [PAV notebook](https://github.com/nealmcb/pr_voting_methods/blob/master/
 for PAV results, so far with just the Adams County results
 in the 2015 Westminster Colorado City Council contest and Byers SD contest.
 
-To run tests on the pav module:
+To run tests on the pav module (where no output means it is working):
 
-    python3 pav.py
+    python3 pav.py --test
+
+## TODO
+
+Add more statistics.  E.g. for a PAV score, show it also as an average score per ballot, or per non-blank ballot, or show as a fraction of the maximum possible score.
 
 ## License
 This project is licensed under the terms of the MIT license.
