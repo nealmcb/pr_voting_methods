@@ -10,6 +10,10 @@ This perhaps makes most sense when working with a variety of voting methods whic
 
 The [Plurality Block Voting](https://en.wikipedia.org/wiki/Plurality-at-large_voting) method is commonly used in council and board of election contests in the US. In an election with N winners, it allows voters to vote for up to N candidates.  So, with the important exception that we don't see how the voters would vote if they could vote for more than N candidates, we can tabulate them using voting methods that use an approval voting ballot, and get at least some insight into methods like Proportional Approval Voting.
 
+## Try it out for free!
+You can click [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/nealmcb/pr_voting_methods/master)
+to launch a free online notebook, via the [Binder](https://mybinder.org/) service, in which you can run this code (e.g. the `pav.ipynb` notebook) online.
+
 ## Currently implemented, in Python 3:
 
 * pav.py: [Proportional Approval Voting](https://en.wikipedia.org/wiki/Proportional_approval_voting)
