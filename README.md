@@ -14,6 +14,8 @@ The [Plurality Block Voting](https://en.wikipedia.org/wiki/Plurality-at-large_vo
 You can click [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/nealmcb/pr_voting_methods/master)
 to launch a free online notebook, via the [Binder](https://mybinder.org/) service, in which you can run this code (e.g. the `pav.ipynb` notebook) online.
 
+On a notebook on Binder, you can use `File/Open/Upload` to upload your own Cast Vote Records in csv format (like the canned example in [Byers_SD_32J_Adams.csv](Byers_SD_32J_Adams.csv) and analyze them in the same way.
+
 ## Currently implemented, in Python 3:
 
 * pav.py: [Proportional Approval Voting](https://en.wikipedia.org/wiki/Proportional_approval_voting)
