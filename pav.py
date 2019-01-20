@@ -8,6 +8,12 @@ Examples:
     ./pav.py --help
 
 SPDX-License-Identifier:	MIT
+
+TODO:
+  show percent gains for utility of optimal vs plurality
+  allow grading utility of arbitrary slates of winners
+  make optimization optional
+
 """
 
 import os
@@ -64,11 +70,16 @@ def utility(permutation, cvr):
     >>> utility(frozenset(["c1", "c2", "c4"]), frozenset(["c1", "c3", "c4"]))
     1.5
     """
+
+    # u = 
+    # logging.debug("perm %s utility %.2f cvr %s len %d inters %s" % (permutation, u, cvr, len(permutation.intersection(cvr)), permutation.intersection(cvr)))
     return UTILITY[len(permutation.intersection(cvr))]
 
 
 def bools_to_set(tuple):
-    return frozenset(key for key, value in tuple._asdict().items() if value)
+    "Return a frozenset of the field names for all values in the given namedtuple which are 1, not 0 or NaN"
+
+    return frozenset(key for key, value in tuple._asdict().items() if value > 0)
 
 
 def res_to_str(res):
@@ -97,7 +108,7 @@ def tally_pav(binary_cvrs, num_winners):
     ('22.000', ['B', 'C'])
     ('13.000', ['B', 'D'])
     <BLANKLINE>
-    Max score for ('30.500', ['A', 'C'])
+    Max score ('30.500', ['A', 'C'])
     """
 
     if isinstance(binary_cvrs, str):
@@ -105,11 +116,15 @@ def tally_pav(binary_cvrs, num_winners):
 
         df = pd.read_csv(binary_cvrs)
 
+        df.dropna(inplace=True)
+
         plurality = df.sum()
         plurality.sort_values(inplace=True, ascending=False)
         print("Plurality results in order")
         print(plurality)
         print()
+
+        plurality_winners = list(plurality.index[:num_winners])
 
         all_candidates = type(next(df.itertuples(False)))._fields
         tuples = df.itertuples(False)
@@ -126,6 +141,9 @@ def tally_pav(binary_cvrs, num_winners):
     uniq = collections.Counter(cvrs)
     print("{} CVRs, {} unique selections of candidates".format(len(cvrs), len(uniq)))
 
+    plurality_utility = sum(utility(frozenset(plurality_winners), cvr) for cvr in cvrs)
+    print("Score is %.3f for plurality winners %s" % (plurality_utility, plurality_winners))
+
     possible_results = itertools.combinations(all_candidates, num_winners)
 
     scores = {}
@@ -138,7 +156,7 @@ def tally_pav(binary_cvrs, num_winners):
     [print(res_to_str(res)) for res in sorted(scores.items(), key=lambda tuple: tuple[1], reverse=True)[:10]]
 
     winner = max(scores.items(), key=lambda tuple: tuple[1])
-    print("\nMax score for {}".format(res_to_str(winner)))
+    print("\nMax score {}".format(res_to_str(winner)))
 
     return winner, cvrs, scores, df
 
