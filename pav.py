@@ -86,10 +86,35 @@ def res_to_str(res):
     return ("%.3f" % res[1], sorted(list(res[0])))
 
 
-def tally_pav(binary_cvrs, num_winners):
-    """Tally given csv file with Proportional Approval Voting method
-    File should have one column per candidate, identified in headers,
+def read_cvrs(filename, num_winners):
+    """Read CVR files in CSV format from filename and return list of BCVRs.
+
+    CSV file should have one column per candidate, identified in headers,
     and have either a "0" or a "1" for each candidate in each row.
+    """
+
+    import pandas as pd
+
+    df = pd.read_csv(filename)
+
+    df.dropna(inplace=True)
+
+    plurality = df.sum()
+
+    plurality.sort_values(inplace=True, ascending=False)
+    print("Plurality results in order")
+    print(plurality)
+    print()
+
+    plurality_winners = list(plurality.index[:num_winners])
+
+    # all_candidates = type(next(df.itertuples(False)))._fields
+    tuples = df.itertuples(False)
+    return tuples, df
+
+
+def tally_pav(binary_cvrs, num_winners):
+    """Tally list of BCVRs with Proportional Approval Voting method
 
     Test: reproduce the example from https://en.wikipedia.org/wiki/Proportional_approval_voting
     FIXME: don't fail if it produces different order of elements in frozensets (cpython vs pypy)
@@ -111,30 +136,9 @@ def tally_pav(binary_cvrs, num_winners):
     Max score ('30.500', ['A', 'C'])
     """
 
-    if isinstance(binary_cvrs, str):
-        import pandas as pd
-
-        df = pd.read_csv(binary_cvrs)
-
-        df.dropna(inplace=True)
-
-        plurality = df.sum()
-        plurality.sort_values(inplace=True, ascending=False)
-        print("Plurality results in order")
-        print(plurality)
-        print()
-
-        plurality_winners = list(plurality.index[:num_winners])
-
-        all_candidates = type(next(df.itertuples(False)))._fields
-        tuples = df.itertuples(False)
-    else:
-        tuples = binary_cvrs
-        df = None
-
     cvrs = []
  
-    for cvr in tuples:
+    for cvr in binary_cvrs:
         cvrs.append(bools_to_set(cvr))
 
     all_candidates = type(cvr)._fields
@@ -158,7 +162,7 @@ def tally_pav(binary_cvrs, num_winners):
     winner = max(scores.items(), key=lambda tuple: tuple[1])
     print("\nMax score {}".format(res_to_str(winner)))
 
-    return winner, cvrs, scores, df
+    return winner, cvrs, scores
 
 
 def _test():
@@ -176,7 +180,8 @@ def _timing():
     winner, cvrs, scores, df = tally_pav([BCVR(*b)] * 100, winners)
     print(winner)
 
-    winner, cvrs, scores, df = tally_pav("Westminster_Adams.csv", 3)
+    bcvrs, df = read_csv("Westminster_Adams.csv")
+    winner, cvrs, scores, df = tally_pav(bcvrs, 3)
     print(winner)
 
 
@@ -198,6 +203,7 @@ def main(parser):
         sys.exit(0)
 
     elif args.cvrfile and args.num_winners:
+        bcvrs, df = read_cvrs("Westminster_Adams.csv", args.num_winners)
         winner, cvrs, scores, df = tally_pav(args.cvrfile, args.num_winners)
 
     else:
