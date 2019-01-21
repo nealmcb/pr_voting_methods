@@ -10,6 +10,10 @@ Examples:
 SPDX-License-Identifier:	MIT
 
 TODO:
+  build on uniq = collections.Counter(cvrs) to replace further usage of cvrs
+
+  refactor with clean parsing, cvr representation, comparison to plurality, etc so it fits in with hypothesis testing which can be generalized to SPAV, STV etc.
+
   show percent gains for utility of optimal vs plurality
   allow grading utility of arbitrary slates of winners
   make optimization optional
@@ -24,7 +28,7 @@ import collections
 import itertools
 
 __author__ = "Neal McBurnett <http://neal.mcburnett.org/>"
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __date__ = "2017-06-28"
 __copyright__ = "Copyright (c) 2017 Neal McBurnett"
 
@@ -65,15 +69,18 @@ def harmonic(matches):
 UTILITY = [harmonic(i) for i in range(0, 100)]
 
 
-def utility(permutation, cvr):
-    """Return utility to voter who voted cvr of given permutation
+def utility(winnerset, cvr):
+    """Return utility to voter who voted cvr of given winnerset.
+    The winnerset should be a valid set of winners in a PAV election.
+    The cvr should be a valid set of candidates voted for.
+
     >>> utility(frozenset(["c1", "c2", "c4"]), frozenset(["c1", "c3", "c4"]))
     1.5
     """
 
     # u = 
-    # logging.debug("perm %s utility %.2f cvr %s len %d inters %s" % (permutation, u, cvr, len(permutation.intersection(cvr)), permutation.intersection(cvr)))
-    return UTILITY[len(permutation.intersection(cvr))]
+    # logging.debug("perm %s utility %.2f cvr %s len %d inters %s" % (winnerset, u, cvr, len(winnerset.intersection(cvr)), winnerset.intersection(cvr)))
+    return UTILITY[len(winnerset.intersection(cvr))]
 
 
 def bools_to_set(tuple):
@@ -113,6 +120,14 @@ def read_cvrs(filename, num_winners):
     return tuples, df
 
 
+def tally_pav_for_result(winnerset, cvrs, num_winners):
+    """Tally the given cvrs based on the given result, assuming num_winners.
+    return the score
+    """
+
+    return sum(utility(winnerset, cvr) for cvr in cvrs)
+
+
 def tally_pav(binary_cvrs, num_winners):
     """Tally list of BCVRs with Proportional Approval Voting method
 
@@ -120,7 +135,7 @@ def tally_pav(binary_cvrs, num_winners):
     FIXME: don't fail if it produces different order of elements in frozensets (cpython vs pypy)
     >>> BCVR = collections.namedtuple('BCVR', ['A', 'B', 'C', 'D'])
     >>> binary_cvrs = [BCVR(1, 1, 0, 0)] * 5 + [BCVR(1, 0, 1, 0)] * 17 + [BCVR(0, 0, 0, 1)] * 8
-    >>> winner, cvrs, scores, df = tally_pav(binary_cvrs, 2)
+    >>> winner, cvrs, scores = tally_pav(binary_cvrs, 2)
     30 CVRs, 3 unique selections of candidates
     <BLANKLINE>
     Proportional Approval Voting results
@@ -145,15 +160,15 @@ def tally_pav(binary_cvrs, num_winners):
     uniq = collections.Counter(cvrs)
     print("{} CVRs, {} unique selections of candidates".format(len(cvrs), len(uniq)))
 
-    plurality_utility = sum(utility(frozenset(plurality_winners), cvr) for cvr in cvrs)
-    print("Score is %.3f for plurality winners %s" % (plurality_utility, plurality_winners))
+    # plurality_utility = sum(utility(frozenset(plurality_winners), cvr) for cvr in cvrs)
+    # print("Score is %.3f for plurality winners %s" % (plurality_utility, plurality_winners))
 
     possible_results = itertools.combinations(all_candidates, num_winners)
 
     scores = {}
     for result in possible_results:
         resultset = frozenset(result)
-        scores[resultset] = sum(utility(resultset, cvr) for cvr in cvrs)
+        scores[resultset] = tally_pav_for_result(resultset, binary_cvrs, num_winners)
 
     print("\nProportional Approval Voting results")
     print("\nTop 10 scores:")
