@@ -48,15 +48,32 @@ To run tests on the pav module (where no output means it is working):
 
     python3 pav.py --test
 
-## Auditing
-Work relating to audits of PAV contests is in progress, and suggests that a risk-limiting audit would not be difficult.
-That is also true for Satisfaction Approval Voting (SAV).
+## Auditing Proportional Representation methods
+
+Work relating to audits of PAV contests is in progress, and suggests that a
+risk-limiting audit method would not be difficult to implement. That is also
+true for Satisfaction Approval Voting (SAV).
 
 Sequential Proportional Approval Voting (SPAV) is likely to be trickier because it proceeds in multiple rounds.
 See related work at https://people.eng.unimelb.edu.au/michelleb/IRV-auditing.pdf and
 https://www.ece.rutgers.edu/~asarwate/pdfs/SarwateCS13irv.pdf .
 
 Note that any voting method can be scientifically audited via Bayesian methods.
+
+## Proportional Representation Outcomes Compared to Single-Winner Outcomes
+
+Since there are more possible outcomes to distinguish, margins in general will
+be tighter for multi-winner methods than for single-winner methods.
+
+But if changing a small number of ballots would alter just one winner in a 5-winner
+contest, it might not affect the balance of power or the legislative
+decision-making much.  So the impact might be considered far less than with a
+single-winner contest in a highly-polarized electorate.
+
+It would also be interesting to look at the outcomes in other ways, e.g. the
+risk that each individual candidate is or is not actually a winner, or the risk
+that the "utility" of the outcome for the electorate (as defined e.g. by the PAV
+score) is off by some fraction.
 
 ## TODO
 
