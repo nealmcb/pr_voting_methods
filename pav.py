@@ -10,10 +10,11 @@ Examples:
 SPDX-License-Identifier:	MIT
 
 TODO:
+  normalize scores: divide by number of ballots
+  For top scores, note Counter of # approved per ballot
   show percent gains for utility of optimal vs plurality
-  allow grading utility of arbitrary slates of winners
+  allow grading of the utility of arbitrary slates of winners
   make optimization optional
-
 """
 
 import os
@@ -66,7 +67,7 @@ UTILITY = [harmonic(i) for i in range(0, 100)]
 
 
 def utility(permutation, cvr):
-    """Return utility to voter who voted cvr of given permutation
+    """Return utility to voter who voted this cvr of the given permutation
     >>> utility(frozenset(["c1", "c2", "c4"]), frozenset(["c1", "c3", "c4"]))
     1.5
     """
@@ -126,7 +127,7 @@ def tally_pav(binary_cvrs, num_winners):
 
         plurality_winners = list(plurality.index[:num_winners])
 
-        all_candidates = type(next(df.itertuples(False)))._fields
+        # all_candidates = type(next(df.itertuples(False)))._fields
         tuples = df.itertuples(False)
     else:
         tuples = binary_cvrs
