@@ -83,6 +83,21 @@ Add more statistics.  E.g. for a PAV score, show it also as an average score per
 This project is licensed under the terms of the MIT license.
 
 # See also
+
+## Fast C-language implementation of Proportional Approval Voting by Warren Smith
+
+Warren D. Smith has an extensive page on Proportional Approval Voting.
+[RangeVoting.org - Optimal proportional representation](https://rangevoting.org/QualityMulti.html)
+
+Fast C language code for the algorithms discussed in that paper is available at
+[CleanOptPRVote.c](https://rangevoting.org/CleanOptPRVote.c)
+and runs about 100 times faster than this Python code.
+Besides being written in C, it also uses Knuth's clever "revolving-door" algorithm R.
+as described on page 9 of his [pre-fascicle 3A, generating all combinations](https://www.kcats.org/csci/464/doc/knuth/fascicles/fasc3a.pdf).
+It has the advangage of changing only one element of the winner set at each step,
+so we can track and update the number of winners for the next ballot in constant time.
+See also the "MC" algorithm at [Combinations](http://combos.org/comb).
+
 ## Auditing Open List Proportional Representation
 The first risk-limiting audit result for proportional representation is published at
 [Verifiable European Elections: Risk-limiting Audits
