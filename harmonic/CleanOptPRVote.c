@@ -3,13 +3,28 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <ctype.h>
+#include <getopt.h>
+
+//#include <stdbool.h>  Use ints or figure out how to use proper bool with cffi
+#define bool int
+#define true 1
+#define false 0
 
 /******
 Algorithms for optimum psi voting.   Warren D. Smith, Nov. 2015.  
 Compile with
    gcc -Wall -O6 CleanOptPRVote.c     (also -DNDEBUG if want to turn off asserts)
-Run with
-    time ./a.out
+
+Usage:
+    CleanOptPRVote [-n] [-t] [-p ballot_count]
+
+-t: test via demo vote records from https://en.wikipedia.org/wiki/Proportional_approval_voting
+-n: numeric accuracy tests
+-p ballot_count: performance_test
+
+TODO:
+    Fix core dump with -p 6 or fewer
 *******/
 
 #define real   double
@@ -51,6 +66,12 @@ real PsiAcc(real x){ // psi(x) = Gamma'(x) / Gamma(x).  We ASSUME x>0.
   return(p);
 }
 
+/*
+Fsimmons is a modification of Psi which produces the same winners, but scales it via K1 and K2
+to produce a function with cleaner recurrence and doubling relationships, as explained
+in https://rangevoting.org/QualityMulti.html#bestdel
+Calculate Fsimmons(x) to high accuracy.
+ */
 real FsimmonsAcc(real x){ // [Psi(x+1/2)-Psi(1/2)]/2.  Assumes x>=0.  Accuracy +-4e-16.
   real p, y, r;
   assert(x>=0.0);  
@@ -85,6 +106,7 @@ real PsiFast(real x){ // psi(x) = Gamma'(x) / Gamma(x).  We ASSUME x>0.
   return(p);
 }
 
+/* Calculate Fsimmons(x) quickly to lower accuracy. */
 real FsimmonsFast(real x){ // psi(x) = Gamma'(x) / Gamma(x).  We ASSUME x>0.  Accuracy +-4e-12.
   real p, y, r;
   assert(x>=0.0);
@@ -101,6 +123,23 @@ real FsimmonsFast(real x){ // psi(x) = Gamma'(x) / Gamma(x).  We ASSUME x>0.  Ac
 #undef C3
 #undef C4
 
+/* Ftab[s] has the quality scores to for any given total score s of a voter's ballot, up to 511.
+Initialized from the harmonic sequence, or the values of FsimmonsAcc(j/TOPSCORE) for 0<=j<512
+For Approval Voting (TOPSCORE=1):
+x    Harmonic   Fsimmons
+0    0.000000   0.000000
+1    1.000000   1.000000
+2    1.333333   1.500000
+3    1.533333   1.833333
+4    1.676190   2.083333
+5    1.787302   2.283333
+6    1.878211   2.450000
+7    1.955134   2.592857
+8    2.021800   2.717857
+9    2.080624   2.828968
+10   2.133256   2.928968
+...
+*/
 real Ftab[512];
 /*********
 For even greater accuracy, the Ftab could be precomputed to accuracy exceeding
@@ -121,11 +160,18 @@ could be got using the shift-by-1 recurrence F(x+1)=F(x)+1/(2*x+1):
 #define FK9     1
 real FK[] = {FK0,FK1,FK2,FK3,FK4,FK5,FK6,FK7,FK8,FK9};
 
-void CreateFtable(uint TOPSCORE){
+// The harmonic option selects the function F(x)=F(x-1)+1/x rather than Fsimmons()
+void CreateFtable(bool harmonic, uint TOPSCORE){
   uint j;
   real scal=1.0/TOPSCORE;
-  for(j=0; j<512; j++){
-    Ftab[j] = FsimmonsAcc(j*scal);
+  Ftab[0] = 0.0;
+  for(j=1; j<512; j++){
+    if (harmonic){
+      Ftab[j] = Ftab[j-1] + 1.0/j;
+    }else{
+      Ftab[j] = FsimmonsAcc(j*scal);
+    }
+    // printf("Ftab[%d]: %f\n", j, Ftab[j]);
   }
 }
 
@@ -186,7 +232,7 @@ void TestPsi(uint T, real L, real U){ //T+1 tests for x in domain L<x<U+L
 /****************
 Carries out V-voter C-candidate W-winner election, 0<W<C, 0<V.
 Algorithm employs "algorithm R" from Knuth volume 4's 7.2.1.3 to generate all W-element subsets
-of the C candidates.
+of the C candidates - via "revolving-door combinations".
 Its mission is, from among all W-element subsets of the C candidates, to find the one maximizing
    Quality = SUM(v=1..V) Psi( Delta + SUM(j=1..W) score[winner[j]*V+k] )
 Here Delta is a positive constant pre-chosen by the voting system designer (1/2<=Delta<=1
@@ -211,7 +257,7 @@ real OptVote(uint V, uint C, uint W, real score[], real Delta, //the inputs
 	     uint winner[]){   //winner[0..W-1] and the returned value are the outputs
   uint k, j, prv=0, scc=0;
   uint64 ctr=0;
-  real A, Q, Qrecord = -HUGE;
+  real A, Q, Qrecord = -HUGE_VAL;
   assert(0.0<Delta);  assert(Delta<=2.0);
   assert(0<W);  assert(W<C);  assert(0<V);
   for(j=0; j<W; j++){ x[j] = j; } x[j]=C; //initial subset: {0,1,2,...,W-1}.
@@ -245,11 +291,11 @@ real OptVote(uint V, uint C, uint W, real score[], real Delta, //the inputs
  R5:
   if(x[j]+1 < x[j+1]){ prv=x[j-1]; x[j-1]=x[j]; scc=x[j]; scc++; x[j]=scc; goto R2; }
   else{ j++; if(j<W){ goto R4; }}
-  printf("Exhaustively searched %llu subsets.\n", ctr);
+  printf("Exhaustively searched %lu subsets.\n", ctr);
   return(Qrecord);
 }
 
-#define BLANKSCORE 10
+#define BLANKSCORE 10  /* this marker value can be used to mark scores left blank by a voter. */
 /****************
 Carries out V-voter C-candidate W-winner election, 0<W<C, 0<V.
 Algorithm employs "algorithm R" from Knuth volume 4's 7.2.1.3 to generate all W-element subsets
@@ -274,15 +320,20 @@ uint (unsigned integer) arrays S[0..V-1] and x[0..W], as workspace,
 and the uint array score[0..C*V-1] as input.
 *************/
 real FastOptVote(uint V, uint C, uint W, uint8 score[],  //the inputs
-	     uint x[], int S[],   //used as workspace
+	     uint x[],  // current winning subset
+	     int S[],   // current total score for each ballot given current winning subset
              uint SumScore[],   //average score for candidate j for j=0..C-1
              uint NonBlankCount[],   //number of nonblank scores for candidate j for j=0..C-1
 	     uint winner[]){   //winner[0..W-1] and the returned value are the outputs
-  uint sum, A, k, j, ct, prv=0, scc=0, hasblank=0;
+  uint sum, A, k, bs, j, ct, prv=0, scc=0, hasblank=0;
   uint64 ctr=0;
-  real Q, Qrecord = -HUGE;
+  real Q, Qrecord = -HUGE_VAL;
   assert(0<W);  assert(W<C);  assert(0<V);
-  for(j=0; j<W; j++){ x[j] = j; } x[j]=C; //initial subset: {0,1,2,...,W-1}.
+
+  //initial winning subset: {0,1,2,...,W-1}
+  for(j=0; j<W; j++){ x[j] = j; } x[j]=C;
+
+  // Initialize total score per ballot for initial winning subset
   for(k=0; k<V; k++){ 
     A = 0;
     for(j=0; j<C; j++){  
@@ -290,22 +341,39 @@ real FastOptVote(uint V, uint C, uint W, uint8 score[],  //the inputs
     }
     S[k] = A;
   }
+
+  // Calculate straight candidate score sums and count blanks
   for(j=0; j<C; j++){ 
     sum = 0; ct = 0;
     for(k=0; k<V; k++){ 
-      if( score[j*V+k]<BLANKSCORE ){ sum += score[j*V+k];  ct++; }else{ hasblank=1; }
+      if( score[j*V+k]<BLANKSCORE ){ sum += score[j*V+k];  ct++; }else{ hasblank=1; bs = j;}
     }
     SumScore[j] = sum;   NonBlankCount[j] = ct;
   }
-  if(hasblank){ return(0); }  //this code cannot handle blank scores, so early exit
+  if(hasblank){   //this code cannot handle blank scores, so exit early
+    printf("Blank vote encountered: value of %d for j=%d): FastOptVote bailing out without a result\n", BLANKSCORE, bs);
+    return(0);
+  }
+
+  printf("\n     QUALITY       %d-WINNER-SET\n", W);
+  fflush(stdout);
+
+  // Iterate thru all the possible winning subsets looking for the best.
+  // prv and scc are the previous and successor candidate and become indexes into the scores.
+  // Only a single candidate of the subset changes with each iteration past R2
  R2:  
+  // Convert scc and prv from candidate indexes to position in score array of first ballot
   ctr++;  Q = 0.0;  scc *= V;  prv *= V;
-  for(k=0; k<V; k++){  //inner loop
-    S[k] += score[scc+k] - score[prv+k];  
+  for(k=0; k<V; k++){  //inner loop thru ballots for this subset: total up Q
+    S[k] += score[scc+k] - score[prv+k];  // update winner score total based on the single changed candidate
     assert(S[k]>=0);
     assert(S[k]<512);
     Q += Ftab[ S[k] ];
   }
+  // printf("Q = %f  Perm: ", Q);
+  // for(k=0; k<W; k++){ winner[k]=x[k]; printf(" %2d", x[k]); }
+  // printf("\n");
+
   if(Q > Qrecord){ //winner set with highest quality yet seen:
     Qrecord = Q;   //print Q then the indices of the winners:
     printf("%16.8f:", Q);
@@ -322,33 +390,185 @@ real FastOptVote(uint V, uint C, uint W, uint8 score[],  //the inputs
  R5:
   if(x[j]+1 < x[j+1]){ prv=x[j-1]; x[j-1]=x[j]; scc=x[j]; scc++; x[j]=scc; goto R2; }
   else{ j++; if(j<W){ goto R4; }}
-  printf("Exhaustively searched %llu subsets.\n", ctr);
+
+  printf("Exhaustively searched %lu subsets.\n", ctr);
   return(Qrecord);
 }
 
-main(){
-  uint x[400+2], j, k, winner[9], SS[29], NBC[29];
-  uint8 Iscore[400*29];
-  int IS[400];
+real display_OptVote(uint V, uint C, uint W, uint8 score[], uint winner[], bool harmonic, int TOPSCORE){
+  uint x[V+2], j, k, SS[C], NBC[C];
+  int IS[V];
   real Q;
-  SeedRand(161703501943);
-  TestPsi(999999, 0.0003, 5.0);
-  CreateFtable(9);
-  winner[8]=0;
 
-  for(j=0; j<400*29; j++){ Iscore[j] = Rand01()*10; }
-  printf("\n400-voter, 29-canddt, 8-winner election (random integer scores 0..9):\n");
-  printf("     QUALITY       %d-WINNER-SET\n", 8);
-  fflush(stdout);
-  Q = FastOptVote(400, 29, 8, Iscore, x, IS, SS, NBC, winner);
-  printf("binomial(29,8)=4292145.\n\n");
-  printf("Canddt   SumScore   NonBlankCount   AvgScore   Won?\n");
-  for(j=0, k=0; j<29; j++){ 
+  assert(W * TOPSCORE < 512);
+  CreateFtable(harmonic, TOPSCORE);
+
+  printf("Results with %s quality function\n", harmonic ? "harmonic" : "Fsimmons");
+  printf("\n%d-voter, %d-candidate, %d-winner election with integer scores 0..%d:\n", V, C, W, TOPSCORE);
+
+  /*
+  printf("Ballot rankings for each candidate:");
+  for(j=0; j<V*C; j++){
+    if (j % V == 0) {
+      printf("\nC%d: ", j/V);
+    }
+    printf("%d ", score[j]);
+  }
+  */
+
+  Q = FastOptVote(V, C, W, score, x, IS, SS, NBC, winner);
+  if (Q == 0.0) {
+    exit(0);
+    /* or scale scores to reals between 0 and 1, replace blanks with averages, and run this:
+       Q = OptVote(n, C, W, realscore, 0.5, x, S, winner);
+    */
+  }
+
+  printf("Candidate SumScore   NonBlankCount  AvgScore   Won?\n");
+  for(j=0, k=0; j<C; j++){
     printf("%2d   %8u  %8u             %.4f     %c\n",
 	   j, SS[j], NBC[j], SS[j]/(real)NBC[j], j==winner[k]?'Y':'N' );
     if(j==winner[k]){ k++; }
   }
   printf("final winner set ");
-  for(j=0; j<8; j++){ printf("%d ", winner[j]); }
+  for(j=0; j<W; j++){ printf("%d ", winner[j]); }
   printf("quality=%.15f\n", Q);
+
+  return(Q);
+}
+
+void performance_test(char *optarg){
+  /* Create V random score ballots, 0-9, and find the winning set using Fsimmons */
+
+  int V = atoi(optarg);
+  int C = 29;
+  int W = 8;
+  int TOPSCORE = 9;  // Max of 9 given BLANKSCORE==10
+  bool harmonic = false;
+  long int seed = 161703501943;
+
+  uint j, winner[W+1];
+  uint8 Iscore[V*C];
+  real Q, Qexpected;
+
+  SeedRand(seed);
+
+  CreateFtable(harmonic, TOPSCORE);
+
+  winner[W]=0;
+
+  printf("Scores generated at random with seed %ld\n", seed);
+
+  // printf("Ballot rankings for each candidate:");
+  for(j=0; j<V*C; j++){
+    Iscore[j] = Rand01()*(TOPSCORE+1);
+    if (j % V == 0) {
+      // printf("\nC%d: ", j/n);
+    }
+    // printf("%d ", Iscore[j]);
+  }
+
+  printf("binomial(29,8)=4292145.\n\n");
+
+  Q = display_OptVote(V, C, W, Iscore, winner, harmonic, TOPSCORE);
+
+  Qexpected = 672.538969660059252;
+  if (V == 400  &&  Q != Qexpected){
+    printf("ERROR: Q=%f, not %.15f", Q, Qexpected);
+    exit(1);
+  }
+}
+
+// Test from https://en.wikipedia.org/wiki/Proportional_approval_voting
+uint8 wp_cvr[] = {
+1,1,0,0,
+1,1,0,0,
+1,1,0,0,
+1,1,0,0,
+1,1,0,0,
+1,0,1,0,
+1,0,1,0,
+1,0,1,0,
+1,0,1,0,
+1,0,1,0,
+1,0,1,0,
+1,0,1,0,
+1,0,1,0,
+1,0,1,0,
+1,0,1,0,
+1,0,1,0,
+1,0,1,0,
+1,0,1,0,
+1,0,1,0,
+1,0,1,0,
+1,0,1,0,
+1,0,1,0,
+0,0,0,1,
+0,0,0,1,
+0,0,0,1,
+0,0,0,1,
+0,0,0,1,
+0,0,0,1,
+0,0,0,1,
+0,0,0,1};
+
+void wikipedia_test(){
+  int V = 30;
+  int C = 4;
+  int W = 2;
+  bool harmonic = true;
+  int TOPSCORE = 1;
+
+  uint winner[W+1]; 
+  real Q;
+
+  uint8 Iscore[V*C];
+  uint8 b, c;
+
+  printf("Proportional Approval Voting data from Wikipedia\n");
+
+  /* for each ballot, for each candidate pull score into appropriate place in Iscore */
+  for (b=0; b<V; b++){
+    for (c=0; c<C; c++){
+      Iscore[c*V+b] = wp_cvr[b*C+c];
+      printf("%d ", Iscore[c*V+b]);
+    }
+    printf("\n");
+  }
+
+  Q = display_OptVote(V, C, W, Iscore, winner, harmonic, TOPSCORE);
+  if (Q != 30.5){
+    printf("ERROR: Q=%f, not 30.5!", Q);
+    exit(1);
+  }
+}
+
+int main(int argc, char *argv[]){
+  char c;
+
+  while ((c = getopt (argc, argv, "ntp:")) != -1)
+    switch (c)
+      {
+      case 'n':
+	TestPsi(999999, 0.0003, 5.0);
+	break;
+      case 't':
+	wikipedia_test();
+	break;
+      case 'p':
+        performance_test(optarg);
+	break;
+      case '?':
+        if (optopt == 'c')
+          fprintf (stderr, "Option -%c requires an argument.\n", optopt);
+        else if (isprint (optopt))
+          fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+        else
+          fprintf (stderr,
+                   "Unknown option character `\\x%x'.\n",
+                   optopt);
+        return 1;
+      default:
+        abort ();
+      }
 }
