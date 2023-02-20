@@ -13,8 +13,9 @@
 
 /******
 Algorithms for optimum psi voting.   Warren D. Smith, Nov. 2015.  
-Compile with
-   gcc -Wall -O6 CleanOptPRVote.c     (also -DNDEBUG if want to turn off asserts)
+
+Build:
+    make CleanOptPRVote
 
 Usage:
     CleanOptPRVote [-n] [-t] [-p ballot_count]
