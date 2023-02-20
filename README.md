@@ -98,6 +98,10 @@ It has the advangage of changing only one element of the winner set at each step
 so we can track and update the number of winners for the next ballot in constant time.
 See also the "MC" algorithm at [Combinations](http://combos.org/comb).
 
+An updated version of the code is here in the `harmonic` subdirectory.
+Hopefully we can get it working as a library so it can be called from Python, to
+make it easy to tally arbitrary elections more quickly.
+
 ## Auditing Open List Proportional Representation
 The first risk-limiting audit result for proportional representation is published at
 [Verifiable European Elections: Risk-limiting Audits
